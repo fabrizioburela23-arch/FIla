@@ -1,0 +1,320 @@
+// Fila — Queue Management SaaS
+// Prisma Schema v1.0 — Multi-tenant PostgreSQL
+// Margin formula enforced: price = cost / (1 - margin)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── SaaS Plans ────────────────────────────────────────────────────────────────
+
+model Plan {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  // Pricing — margin-over-price formula: price = cost / (1 - margin)
+  cost        Decimal  @db.Decimal(10, 2)
+  margin      Decimal  @db.Decimal(5, 4) // e.g. 0.65 = 65%
+  price       Decimal  @db.Decimal(10, 2) // derived: cost / (1 - margin)
+  // Limits
+  maxBranches            Int @default(1)
+  maxOperatorsPerBranch  Int @default(5)
+  maxServicesPerBranch   Int @default(5)
+  maxTicketsPerDay       Int @default(500)
+  features               Json @default("{}")
+  isActive               Boolean @default(true)
+  createdAt              DateTime @default(now()) @db.Timestamptz
+
+  subscriptions Subscription[]
+  accounts      Account[]
+}
+
+// ─── Tenants (Accounts) ────────────────────────────────────────────────────────
+
+model Account {
+  id        String        @id @default(uuid()) @db.Uuid
+  name      String        @db.VarChar(255)
+  slug      String        @unique @db.VarChar(100) // URL/subdomain identifier
+  email     String        @unique @db.VarChar(255)
+  phone     String?       @db.VarChar(50)
+  logoUrl   String?       @db.Text
+  status    AccountStatus @default(ACTIVE)
+  settings  Json          @default("{}")
+  planId    String?       @db.Uuid
+  plan      Plan?         @relation(fields: [planId], references: [id])
+  createdAt DateTime      @default(now()) @db.Timestamptz
+  updatedAt DateTime      @updatedAt @db.Timestamptz
+
+  users         User[]
+  branches      Branch[]
+  services      Service[]
+  operators     Operator[]
+  tickets       Ticket[]
+  subscriptions Subscription[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  TRIALING
+}
+
+// ─── Subscriptions ─────────────────────────────────────────────────────────────
+
+model Subscription {
+  id                 String             @id @default(uuid()) @db.Uuid
+  accountId          String             @db.Uuid
+  account            Account            @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  planId             String             @db.Uuid
+  plan               Plan               @relation(fields: [planId], references: [id])
+  status             SubscriptionStatus @default(TRIALING)
+  currentPeriodStart DateTime           @db.Timestamptz
+  currentPeriodEnd   DateTime           @db.Timestamptz
+  trialEnd           DateTime?          @db.Timestamptz
+  cancelledAt        DateTime?          @db.Timestamptz
+  createdAt          DateTime           @default(now()) @db.Timestamptz
+  updatedAt          DateTime           @updatedAt @db.Timestamptz
+
+  @@index([accountId, status])
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELLED
+}
+
+// ─── Users ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  accountId    String     @db.Uuid
+  account      Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  email        String     @db.VarChar(255)
+  passwordHash String     @db.VarChar(255)
+  fullName     String     @db.VarChar(255)
+  avatarUrl    String?    @db.Text
+  role         UserRole
+  status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?  @db.Timestamptz
+  createdAt    DateTime   @default(now()) @db.Timestamptz
+  updatedAt    DateTime   @updatedAt @db.Timestamptz
+
+  operator Operator?
+
+  @@unique([accountId, email])
+  @@index([accountId, role])
+  @@index([email])
+}
+
+enum UserRole {
+  ADMIN    // Dueño/administrador del tenant
+  MANAGER  // Gerente de sucursal
+  OPERATOR // Cajero, médico, recepcionista
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ─── Branches (Sucursales) ─────────────────────────────────────────────────────
+
+model Branch {
+  id         String   @id @default(uuid()) @db.Uuid
+  accountId  String   @db.Uuid
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name       String   @db.VarChar(255)
+  address    String?  @db.Text
+  city       String?  @db.VarChar(100)
+  country    String   @default("MX") @db.VarChar(10)
+  phone      String?  @db.VarChar(50)
+  timezone   String   @default("America/Mexico_City") @db.VarChar(50)
+  qrCodeUrl  String?  @db.Text
+  isOpen     Boolean  @default(false)
+  settings   Json     @default("{}")
+  createdAt  DateTime @default(now()) @db.Timestamptz
+  updatedAt  DateTime @updatedAt @db.Timestamptz
+
+  services        Service[]
+  operators       Operator[]
+  tickets         Ticket[]
+  dailySequences  DailySequence[]
+
+  @@index([accountId])
+  @@index([accountId, isOpen])
+}
+
+// ─── Services (Colas/Servicios) ────────────────────────────────────────────────
+
+model Service {
+  id               String   @id @default(uuid()) @db.Uuid
+  branchId         String   @db.Uuid
+  branch           Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  accountId        String   @db.Uuid
+  account          Account  @relation(fields: [accountId], references: [id])
+  name             String   @db.VarChar(255)
+  description      String?  @db.Text
+  prefix           String   @db.Char(1)   // Letra del turno: A, B, C...
+  color            String   @default("#3B82F6") @db.VarChar(7)
+  iconName         String?  @db.VarChar(50)
+  // Tiempo promedio de atención en segundos (recalculado dinámicamente)
+  avgAttentionSecs Int      @default(300)
+  isActive         Boolean  @default(true)
+  position         Int      @default(0)
+  createdAt        DateTime @default(now()) @db.Timestamptz
+  updatedAt        DateTime @updatedAt @db.Timestamptz
+
+  tickets        Ticket[]
+  dailySequences DailySequence[]
+
+  @@unique([branchId, prefix])
+  @@index([branchId, isActive])
+  @@index([accountId])
+}
+
+// ─── Operators (Ventanillas/Módulos) ──────────────────────────────────────────
+
+model Operator {
+  id              String         @id @default(uuid()) @db.Uuid
+  branchId        String         @db.Uuid
+  branch          Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  accountId       String         @db.Uuid
+  account         Account        @relation(fields: [accountId], references: [id])
+  userId          String?        @unique @db.Uuid
+  user            User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name            String         @db.VarChar(255) // "Ventanilla 1", "Módulo A"
+  displayName     String         @db.VarChar(50)  // Nombre corto para TV
+  status          OperatorStatus @default(OFFLINE)
+  // IDs de servicios que este operador puede atender (array JSON)
+  serviceIds      String[]       @db.Uuid
+  currentTicketId String?        @unique @db.Uuid
+  createdAt       DateTime       @default(now()) @db.Timestamptz
+  updatedAt       DateTime       @updatedAt @db.Timestamptz
+
+  currentTicket   Ticket?        @relation("CurrentTicket", fields: [currentTicketId], references: [id], onDelete: SetNull)
+  attendedTickets Ticket[]       @relation("AttendedTickets")
+  ticketEvents    TicketEvent[]
+
+  @@index([branchId, status])
+  @@index([accountId])
+}
+
+enum OperatorStatus {
+  ONLINE
+  BUSY
+  PAUSED
+  OFFLINE
+}
+
+// ─── Tickets (Turnos) ──────────────────────────────────────────────────────────
+
+model Ticket {
+  id             String       @id @default(uuid()) @db.Uuid
+  serviceId      String       @db.Uuid
+  service        Service      @relation(fields: [serviceId], references: [id])
+  branchId       String       @db.Uuid
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  accountId      String       @db.Uuid
+  account        Account      @relation(fields: [accountId], references: [id])
+  operatorId     String?      @db.Uuid
+  // Relación con operador que atendió (histórico)
+  attendedBy     Operator?    @relation("AttendedTickets", fields: [operatorId], references: [id], onDelete: SetNull)
+  ticketNumber   String       @db.VarChar(10)  // "A-014", "C-007"
+  sequenceNumber Int                            // Número secuencial del día
+  customerName   String?      @db.VarChar(255) // null = anónimo
+  customerPhone  String?      @db.VarChar(50)
+  status         TicketStatus @default(WAITING)
+  priority       Int          @default(0)       // 0=normal, 1=priority, 2=VIP
+  source         TicketSource @default(QR)
+  notes          String?      @db.Text
+  // Métricas de tiempo (calculadas al cerrar el turno)
+  waitedSecs     Int?
+  attentionSecs  Int?
+  // Timestamps de transición de estado
+  calledAt       DateTime?    @db.Timestamptz
+  attendedAt     DateTime?    @db.Timestamptz
+  completedAt    DateTime?    @db.Timestamptz
+  createdAt      DateTime     @default(now()) @db.Timestamptz
+
+  operatorAsCurrent Operator?     @relation("CurrentTicket")
+  events            TicketEvent[]
+
+  // Un número de turno es único por sucursal+servicio+día
+  @@unique([branchId, serviceId, ticketNumber, createdAt])
+  // Índices críticos para queries de turnos activos
+  @@index([branchId, status])
+  @@index([serviceId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([accountId, createdAt])
+}
+
+enum TicketStatus {
+  WAITING    // En espera
+  CALLED     // Llamado (en camino al módulo)
+  ATTENDING  // Siendo atendido
+  COMPLETED  // Atención finalizada
+  NO_SHOW    // No se presentó
+  TRANSFERRED // Transferido a otro servicio
+  CANCELLED  // Cancelado por el cliente
+}
+
+enum TicketSource {
+  QR      // Escaneó código QR
+  WEB     // Acceso web directo
+  MANUAL  // Creado por operador manualmente
+}
+
+// ─── Ticket Events (Audit Trail en tiempo real) ────────────────────────────────
+
+model TicketEvent {
+  id         String          @id @default(uuid()) @db.Uuid
+  ticketId   String          @db.Uuid
+  ticket     Ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  operatorId String?         @db.Uuid
+  operator   Operator?       @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+  eventType  TicketEventType
+  fromStatus TicketStatus?
+  toStatus   TicketStatus?
+  metadata   Json            @default("{}")
+  createdAt  DateTime        @default(now()) @db.Timestamptz
+
+  @@index([ticketId])
+  @@index([ticketId, createdAt])
+}
+
+enum TicketEventType {
+  CREATED
+  CALLED
+  ATTENDING
+  COMPLETED
+  NO_SHOW
+  TRANSFERRED
+  CANCELLED
+  RECALLED      // Re-llamado tras no presentarse
+}
+
+// ─── Daily Sequences (Numeración diaria por servicio) ─────────────────────────
+
+model DailySequence {
+  id           String   @id @default(uuid()) @db.Uuid
+  serviceId    String   @db.Uuid
+  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  branchId     String   @db.Uuid
+  branch       Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  date         DateTime @db.Date
+  lastSequence Int      @default(0)
+
+  @@unique([serviceId, date])
+  @@index([serviceId, date])
+}
