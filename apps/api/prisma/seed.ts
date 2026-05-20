@@ -48,13 +48,14 @@ const plans = [
 async function seed() {
   console.log('🌱 Seeding database...');
 
-  // Upsert plans
+  // Upsert plans (find by name first, then create or update)
   for (const plan of plans) {
-    await prisma.plan.upsert({
-      where: { name: plan.name } as any,
-      update: plan,
-      create: plan,
-    });
+    const existing = await prisma.plan.findFirst({ where: { name: plan.name } });
+    if (existing) {
+      await prisma.plan.update({ where: { id: existing.id }, data: plan });
+    } else {
+      await prisma.plan.create({ data: plan });
+    }
   }
   console.log('✅ Plans seeded (BOB pricing)');
 

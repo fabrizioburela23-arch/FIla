@@ -1,4 +1,4 @@
-import { Server as HttpServer } from 'http';
+import type { Server as HttpServer } from 'http';
 import { Server } from 'socket.io';
 import { env } from '../config/env';
 import { logger } from '../shared/utils/logger';

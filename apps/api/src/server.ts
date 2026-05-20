@@ -1,5 +1,4 @@
 import 'dotenv/config';
-import http from 'http';
 import Fastify from 'fastify';
 import fastifyCors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
@@ -43,27 +42,20 @@ async function bootstrap() {
   // Public queue routes (no /api prefix — short URLs for QR codes)
   await fastify.register(ticketsRoutes);
 
-  // Build HTTP server and attach Socket.io
-  const httpServer = http.createServer(fastify.server);
-  initSocketGateway(httpServer);
-
   // Database and cache connections
   await connectDatabase();
   await connectRedis();
 
   await fastify.ready();
 
-  httpServer.listen({ port: env.API_PORT, host: env.API_HOST }, (err) => {
-    if (err) {
-      logger.error(err, 'Failed to start server');
-      process.exit(1);
-    }
-    logger.info(`Fila API running on http://${env.API_HOST}:${env.API_PORT}`);
-  });
+  // Attach Socket.io to Fastify's underlying http.Server (not a new one)
+  initSocketGateway(fastify.server);
+
+  await fastify.listen({ port: env.API_PORT, host: env.API_HOST });
+  logger.info(`Fila API running on http://${env.API_HOST}:${env.API_PORT}`);
 
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutting down gracefully');
-    httpServer.close();
     await fastify.close();
     process.exit(0);
   };

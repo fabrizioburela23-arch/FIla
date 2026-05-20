@@ -21,15 +21,18 @@ export interface TransferInput {
 
 export const ticketsService = {
   async joinQueue(input: JoinQueueInput) {
-    const { serviceId, branchId, accountId, customerName, customerPhone, source = TicketSource.QR } = input;
+    const { serviceId, branchId, customerName, customerPhone, source = TicketSource.QR } = input;
 
-    const [service, branch] = await Promise.all([
-      prisma.service.findFirst({ where: { id: serviceId, branchId, accountId, isActive: true } }),
-      prisma.branch.findFirst({ where: { id: branchId, accountId, isOpen: true } }),
-    ]);
-
-    if (!service) throw new Error('SERVICE_NOT_FOUND');
+    // Public endpoint: resolve branch first (no accountId required from client)
+    const branch = await prisma.branch.findFirst({ where: { id: branchId, isOpen: true } });
     if (!branch) throw new Error('BRANCH_CLOSED');
+
+    const service = await prisma.service.findFirst({
+      where: { id: serviceId, branchId, accountId: branch.accountId, isActive: true },
+    });
+    if (!service) throw new Error('SERVICE_NOT_FOUND');
+
+    const accountId = branch.accountId;
 
     const { seq, ticketNumber } = await ticketsRepository.getNextSequence(serviceId, branchId);
 
