@@ -137,9 +137,9 @@ model Branch {
   name       String   @db.VarChar(255)
   address    String?  @db.Text
   city       String?  @db.VarChar(100)
-  country    String   @default("MX") @db.VarChar(10)
+  country    String   @default("BO") @db.VarChar(10)
   phone      String?  @db.VarChar(50)
-  timezone   String   @default("America/Mexico_City") @db.VarChar(50)
+  timezone   String   @default("America/La_Paz") @db.VarChar(50)
   qrCodeUrl  String?  @db.Text
   isOpen     Boolean  @default(false)
   settings   Json     @default("{}")

@@ -3,7 +3,7 @@
 -- PostgreSQL Schema v1.0 — Multi-tenant
 --
 -- REGLA FINANCIERA: precio_venta = costo / (1 - margen_deseado)
--- Ejemplo: costo $200 MXN, margen 65% → precio = 200 / (1-0.65) = $571.43 MXN
+-- Ejemplo: costo 122.50 BOB, margen 65% → precio = 122.50 / (1-0.65) = 350 BOB
 -- ══════════════════════════════════════════════════════════════════════════════
 
 -- Extensiones requeridas
@@ -101,9 +101,9 @@ CREATE TABLE branches (
   name       VARCHAR(255) NOT NULL,
   address    TEXT,
   city       VARCHAR(100),
-  country    VARCHAR(10) DEFAULT 'MX',
+  country    VARCHAR(10) DEFAULT 'BO',
   phone      VARCHAR(50),
-  timezone   VARCHAR(50) DEFAULT 'America/Mexico_City',
+  timezone   VARCHAR(50) DEFAULT 'America/La_Paz',
   qr_code_url TEXT,                       -- URL del QR generado para imprimir
   is_open    BOOLEAN DEFAULT FALSE,
   settings   JSONB   DEFAULT '{}',
@@ -346,27 +346,27 @@ VALUES
   (
     'Starter',
     'Para negocios pequeños que dan sus primeros pasos',
-    175.00,   -- costo MXN/mes
-    0.65,     -- 65% margen sobre precio
-    500.00,   -- 175 / (1 - 0.65) = 500 MXN/mes
+    122.50,   -- costo BOB/mes — costo operativo base
+    0.65,     -- 65% margen sobre precio de venta
+    350.00,   -- 122.50 / (1 - 0.65) = 350 BOB/mes ≈ $50 USD
     1, 3, 3, 200,
     '{"analytics_basic": true, "qr_generator": true, "tv_display": false}'
   ),
   (
     'Business',
-    'Para empresas medianas con múltiples sucursales',
-    630.00,
+    'Para clínicas, farmacias y empresas con múltiples sucursales',
+    367.50,
     0.65,
-    1800.00,  -- 630 / (1 - 0.65) = 1800 MXN/mes
+    1050.00,  -- 367.50 / (1 - 0.65) = 1050 BOB/mes ≈ $150 USD
     5, 10, 10, 2000,
     '{"analytics_advanced": true, "qr_generator": true, "tv_display": true, "webhooks": true, "transfer": true}'
   ),
   (
     'Enterprise',
-    'Para corporativos y clínicas de alto volumen',
-    2450.00,
+    'Para bancos, hospitales y corporativos de alto volumen',
+    980.00,
     0.65,
-    7000.00,  -- 2450 / (1 - 0.65) = 7000 MXN/mes
+    2800.00,  -- 980 / (1 - 0.65) = 2800 BOB/mes ≈ $400 USD
     999, 999, 999, 999999,
     '{"analytics_advanced": true, "qr_generator": true, "tv_display": true, "webhooks": true, "transfer": true, "api_access": true, "white_label": true, "priority_support": true}'
   );
