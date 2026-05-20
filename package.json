@@ -4,14 +4,14 @@
   "private": true,
   "description": "SaaS Queue Management System — Multi-tenant",
   "scripts": {
-    "dev": "concurrently \"pnpm --filter api dev\" \"pnpm --filter web dev\"",
-    "build": "pnpm --filter api build && pnpm --filter web build",
+    "dev": "concurrently \"pnpm --filter backend dev\" \"pnpm --filter frontend dev\"",
+    "build": "pnpm --filter backend build && pnpm --filter frontend build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "db:migrate": "pnpm --filter api prisma migrate dev",
-    "db:generate": "pnpm --filter api prisma generate",
-    "db:studio": "pnpm --filter api prisma studio",
-    "db:seed": "pnpm --filter api prisma db seed"
+    "db:migrate": "pnpm --filter backend prisma migrate dev",
+    "db:generate": "pnpm --filter backend prisma generate",
+    "db:studio": "pnpm --filter backend prisma studio",
+    "db:seed": "pnpm --filter backend prisma db seed"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

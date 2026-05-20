@@ -17,7 +17,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@fila/shared-types": ["../../packages/shared-types/src/index.ts"]
+      "@fila/shared-types": ["../packages/shared-types/src/index.ts"]
     }
   },
   "include": ["src"],
