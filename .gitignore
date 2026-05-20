@@ -12,8 +12,8 @@ build/
 .env.local
 .env.*.local
 
-# Prisma
-apps/api/prisma/migrations/*.sql
+# Prisma backup files only (migrations should be committed)
+apps/api/prisma/migrations/*.sql.bak
 
 # Logs
 *.log
