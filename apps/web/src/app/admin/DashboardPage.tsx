@@ -1,122 +1,268 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { ticketsApi } from '@/services/api/tickets.api';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
+import {
+  analyticsApi,
+  branchesApi,
+  type AnalyticsSummary,
+  type Branch,
+  type TimelinePoint,
+} from '@/services/api/admin.api';
 import { Spinner } from '@/components/ui/Spinner';
+import { formatMinutes } from '@/lib/utils/formatters';
 
-interface Summary {
-  totals: { total: number; completed: number; noShow: number; cancelled: number; completionRate: number };
-  averages: { avgWaitMinutes: number; avgAttentionMinutes: number };
-  byService: Array<{ service: { name: string; color: string }; count: number; avgWaitMinutes: number; avgAttentionMinutes: number }>;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
-interface TimelineEntry { date: string; total: number; completed: number }
+function todayLabel(): string {
+  return new Date().toLocaleDateString('es-AR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
 
-function StatCard({ icon, iconBg, label, value, sub }: { icon: string; iconBg: string; label: string; value: string | number; sub?: string }) {
+// ─── Stat card ────────────────────────────────────────────────────────────────
+
+interface StatCardProps {
+  icon: string;
+  iconBg: string;
+  label: string;
+  value: string;
+}
+
+function StatCard({ icon, iconBg, label, value }: StatCardProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-6">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${iconBg}`}>
-        <span className="material-symbols-outlined text-xl">{icon}</span>
+    <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col gap-3">
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${iconBg}`}>
+        <span className="material-symbols-outlined icon-fill text-[20px] text-white">{icon}</span>
       </div>
       <p className="text-label-caps text-on-surface-variant uppercase">{label}</p>
-      <p className="text-headline-lg text-on-surface mt-1">{value}</p>
-      {sub && <p className="text-label-caps text-on-surface-variant mt-1">{sub}</p>}
+      <p className="text-headline-lg text-on-surface">{value}</p>
     </div>
   );
 }
 
+// ─── Branch status row ────────────────────────────────────────────────────────
+
+function BranchRow({ branch }: { branch: Branch }) {
+  return (
+    <div className="flex items-center gap-4 py-3 border-b border-outline-variant last:border-0">
+      <div className="flex-1 min-w-0">
+        <p className="text-body-md font-medium text-on-surface truncate">{branch.name}</p>
+        <p className="text-label-caps text-on-surface-variant uppercase">{branch.city}</p>
+      </div>
+      <span
+        className={[
+          'text-label-caps font-semibold px-3 py-1 rounded-full uppercase',
+          branch.isOpen
+            ? 'bg-secondary-container text-on-secondary-container'
+            : 'bg-surface-container-highest text-on-surface-variant',
+        ].join(' ')}
+      >
+        {branch.isOpen ? 'Abierta' : 'Cerrada'}
+      </span>
+      {branch.operatorCount !== undefined && (
+        <div className="flex items-center gap-1 text-on-surface-variant">
+          <span className="material-symbols-outlined text-[16px]">badge</span>
+          <span className="text-label-caps">{branch.operatorCount}</span>
+        </div>
+      )}
+      <Link
+        to="/admin/branches"
+        className="text-primary text-label-caps uppercase hover:underline flex items-center gap-0.5"
+      >
+        Ver
+        <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+      </Link>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function DashboardPage() {
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
+  const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
+  const [timeline, setTimeline] = useState<TimelinePoint[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const today = new Date();
-    const from = new Date(today); from.setDate(from.getDate() - 7);
-
+    const today = todayISO();
     Promise.all([
-      ticketsApi.getAnalyticsSummary({ from: from.toISOString(), to: today.toISOString() }),
-      ticketsApi.getAnalyticsTimeline({ from: from.toISOString(), to: today.toISOString() }),
-    ]).then(([s, t]) => {
-      setSummary(s);
-      setTimeline(t.timeline ?? []);
-    }).finally(() => setLoading(false));
+      analyticsApi.getSummary({ from: today, to: today }),
+      analyticsApi.getTimeline({ from: today, to: today }),
+      branchesApi.list(),
+    ])
+      .then(([s, t, b]) => {
+        setSummary(s);
+        setTimeline(t);
+        setBranches(b);
+      })
+      .catch(() => {
+        // Silently handle – individual sections show empty states
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <Spinner size="lg" />
-    </div>
-  );
-
   return (
-    <div className="space-y-8 pb-20 md:pb-0">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-headline-lg-mobile text-on-surface font-semibold">Panel General</h1>
-          <p className="text-body-md text-on-surface-variant mt-1">
-            {new Date().toLocaleDateString('es-BO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
-        </div>
+    <div className="bg-background min-h-full pb-8">
+      {/* Page header */}
+      <div className="mb-8">
+        <h1 className="text-headline-lg text-on-surface">Panel General</h1>
+        <p className="text-body-md text-on-surface-variant capitalize mt-1">{todayLabel()}</p>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard icon="confirmation_number" iconBg="bg-primary-fixed text-on-primary-fixed" label="Turnos (7 días)" value={summary?.totals.total ?? 0} />
-        <StatCard icon="schedule" iconBg="bg-secondary-container text-on-secondary-container" label="TPE Promedio" value={`${summary?.averages.avgWaitMinutes ?? 0} min`} sub="Tiempo de espera" />
-        <StatCard icon="timer" iconBg="bg-tertiary-fixed text-on-tertiary-fixed" label="TPA Promedio" value={`${summary?.averages.avgAttentionMinutes ?? 0} min`} sub="Tiempo de atención" />
-        <StatCard icon="check_circle" iconBg="bg-secondary-container text-on-secondary-container" label="Completados" value={`${summary?.totals.completionRate ?? 0}%`} sub={`${summary?.totals.completed ?? 0} turnos`} />
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-headline-md text-on-surface mb-4">Turnos por día</h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={timeline}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#c3c6d6" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Legend />
-              <Line type="monotone" dataKey="total" stroke="#003d9b" name="Total" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="completed" stroke="#006d39" name="Completados" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
+      {loading ? (
+        <div className="flex items-center justify-center py-24">
+          <Spinner size="lg" />
         </div>
+      ) : (
+        <>
+          {/* KPI grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <StatCard
+              icon="confirmation_number"
+              iconBg="bg-primary"
+              label="Turnos Hoy"
+              value={summary?.total.toString() ?? '—'}
+            />
+            <StatCard
+              icon="schedule"
+              iconBg="bg-secondary"
+              label="Tiempo Prom. Espera"
+              value={summary ? formatMinutes(summary.avgWaitSecs) : '—'}
+            />
+            <StatCard
+              icon="timer"
+              iconBg="bg-tertiary"
+              label="Tiempo Prom. Atención"
+              value={summary ? formatMinutes(summary.avgAttentionSecs) : '—'}
+            />
+            <StatCard
+              icon="task_alt"
+              iconBg="bg-primary-container"
+              label="Tasa Completados %"
+              value={summary ? `${summary.completedPct.toFixed(1)} %` : '—'}
+            />
+          </div>
 
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-headline-md text-on-surface mb-4">TPE y TPA por servicio</h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={summary?.byService ?? []} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#c3c6d6" />
-              <XAxis type="number" tick={{ fontSize: 11 }} unit=" min" />
-              <YAxis type="category" dataKey="service.name" tick={{ fontSize: 11 }} width={90} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="avgWaitMinutes" fill="#003d9b" name="TPE" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="avgAttentionMinutes" fill="#006d39" name="TPA" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Quick links */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { to: '/admin/branches', icon: 'store', label: 'Gestionar Sucursales', color: 'bg-primary-fixed text-on-primary-fixed' },
-          { to: '/admin/operators', icon: 'badge', label: 'Ver Operadores', color: 'bg-secondary-container text-on-secondary-container' },
-          { to: '/admin/analytics', icon: 'analytics', label: 'Ver Analítica', color: 'bg-tertiary-fixed text-on-tertiary-fixed' },
-        ].map((item) => (
-          <Link key={item.to} to={item.to} className="bg-white rounded-2xl shadow-sm p-6 flex items-center gap-4 hover:shadow-md transition-shadow group">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${item.color}`}>
-              <span className="material-symbols-outlined">{item.icon}</span>
+          {/* Branch quick status */}
+          <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-headline-md text-on-surface">Estado de Sucursales</h2>
+              <Link
+                to="/admin/branches"
+                className="text-primary text-label-caps uppercase hover:underline flex items-center gap-0.5"
+              >
+                Ver todas
+                <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+              </Link>
             </div>
-            <span className="text-body-md font-medium text-on-surface group-hover:text-primary transition-colors">{item.label}</span>
-            <span className="material-symbols-outlined text-on-surface-variant ml-auto">arrow_forward</span>
-          </Link>
-        ))}
-      </div>
+            {branches.length === 0 ? (
+              <div className="py-8 flex flex-col items-center gap-2 text-on-surface-variant">
+                <span className="material-symbols-outlined text-4xl">store_off</span>
+                <p className="text-body-md">No hay sucursales registradas.</p>
+                <Link to="/admin/branches" className="text-primary text-label-caps uppercase hover:underline">
+                  Crear primera sucursal
+                </Link>
+              </div>
+            ) : (
+              <div>
+                {branches.slice(0, 6).map((b) => (
+                  <BranchRow key={b.id} branch={b} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Timeline */}
+            <div className="bg-white rounded-2xl shadow-sm p-6">
+              <h2 className="text-headline-md text-on-surface mb-4">Turnos por hora hoy</h2>
+              {timeline.length === 0 ? (
+                <div className="h-[300px] flex flex-col items-center justify-center gap-2 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-4xl">bar_chart_off</span>
+                  <p className="text-body-md">Sin datos para hoy.</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={timeline} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#c3c6d6" />
+                    <XAxis dataKey="hour" tick={{ fontSize: 11, fill: '#434654' }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#434654' }} tickLine={false} axisLine={false} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 12, border: '1px solid #c3c6d6', fontSize: 13 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#003d9b"
+                      strokeWidth={2}
+                      dot={false}
+                      name="Turnos"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            {/* TPE vs TPA per service */}
+            <div className="bg-white rounded-2xl shadow-sm p-6">
+              <h2 className="text-headline-md text-on-surface mb-4">TPE vs TPA por Servicio</h2>
+              {!summary || summary.byService.length === 0 ? (
+                <div className="h-[300px] flex flex-col items-center justify-center gap-2 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-4xl">bar_chart_off</span>
+                  <p className="text-body-md">Sin datos de servicios.</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={summary.byService.map((s) => ({
+                      name: s.serviceName.length > 12 ? `${s.serviceName.slice(0, 12)}…` : s.serviceName,
+                      TPE: Math.round(s.avgWaitSecs / 60),
+                      TPA: Math.round(s.avgAttentionSecs / 60),
+                    }))}
+                    margin={{ top: 4, right: 8, left: -20, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#c3c6d6" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#434654' }} tickLine={false} />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: '#434654' }}
+                      tickLine={false}
+                      axisLine={false}
+                      unit=" min"
+                    />
+                    <Tooltip
+                      formatter={(v: number) => `${v} min`}
+                      contentStyle={{ borderRadius: 12, border: '1px solid #c3c6d6', fontSize: 13 }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Bar dataKey="TPE" fill="#003d9b" radius={[4, 4, 0, 0]} name="Esp. (min)" />
+                    <Bar dataKey="TPA" fill="#006d39" radius={[4, 4, 0, 0]} name="Aten. (min)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
