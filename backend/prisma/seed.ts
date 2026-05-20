@@ -59,8 +59,8 @@ async function seed() {
   }
   console.log('✅ Plans seeded (BOB pricing)');
 
-  // Demo account for development
-  if (process.env.NODE_ENV === 'development') {
+  // Demo account (runs on first deploy in any environment)
+  if (true) {
     const existingAccount = await prisma.account.findUnique({ where: { email: 'demo@fila.bo' } });
     if (!existingAccount) {
       const starterPlan = await prisma.plan.findFirst({ where: { name: 'Business' } });
