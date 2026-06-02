@@ -1,28 +1,35 @@
 FROM node:20-alpine AS builder
-WORKDIR /app
+WORKDIR /monorepo
 
-COPY package*.json ./
+# Copy shared packages so @fila/shared-types path alias resolves
+COPY packages/ ./packages/
+
+# Install backend dependencies
+WORKDIR /monorepo/backend
+COPY backend/package.json ./
 RUN npm install
 
-COPY prisma ./prisma
+COPY backend/prisma ./prisma
 RUN npx prisma generate
 
-COPY . .
-# Build server + seed script
+COPY backend/ .
+
+# Build
 RUN npm run build && \
     npx tsup prisma/seed.ts --out-dir dist --format cjs --no-splitting
 
-# ── Runtime ───────────────────────────────────────────────────────────────────
+# Runtime
 FROM node:20-alpine
 WORKDIR /app
-COPY package*.json ./
+
+COPY backend/package.json ./
 RUN npm install --omit=dev
 
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY prisma ./prisma
-COPY scripts/start.sh ./start.sh
+COPY --from=builder /monorepo/backend/dist ./dist
+COPY --from=builder /monorepo/backend/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /monorepo/backend/node_modules/@prisma ./node_modules/@prisma
+COPY backend/prisma ./prisma
+COPY backend/scripts/start.sh ./start.sh
 RUN chmod +x ./start.sh
 
 ENV NODE_ENV=production
