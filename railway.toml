@@ -1,7 +1,9 @@
 [build]
-builder = "nixpacks"
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
 
 [deploy]
-startCommand = "cd backend && sh scripts/start.sh"
 healthcheckPath = "/health"
 healthcheckTimeout = 60
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
