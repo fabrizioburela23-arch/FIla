@@ -1,4 +1,5 @@
 FROM node:20-alpine AS builder
+RUN apk add --no-cache openssl
 WORKDIR /monorepo
 
 # Copy shared packages so @fila/shared-types path alias resolves
@@ -20,6 +21,7 @@ RUN npm run build && \
 
 # Runtime
 FROM node:20-alpine
+RUN apk add --no-cache openssl
 WORKDIR /app
 
 COPY backend/package.json ./
