@@ -12,7 +12,7 @@ RUN npm install
 # Copy all frontend source
 COPY frontend/ .
 
-ARG VITE_API_URL
+ARG VITE_API_URL=https://fila-production-3062.up.railway.app
 ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
