@@ -153,7 +153,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
 
           {/* ── Admin (protected) ── */}
-          <Route element={<ProtectedRoute roles={['admin', 'manager']} />}>
+          <Route element={<ProtectedRoute roles={['admin', 'manager', 'superadmin']} />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboardPage />} />
               <Route path="branches" element={<AdminBranchesPage />} />

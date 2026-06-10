@@ -13,9 +13,17 @@ export const apiClient = axios.create({
 // ── Request interceptor: attach Bearer token ──────────────────────────────────
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('fila_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const raw = localStorage.getItem('fila_token');
+    if (raw) {
+      try {
+        // zustand persist wraps the value as { state: { token: '...' }, version: 0 }
+        const parsed = JSON.parse(raw);
+        const token: string | null = parsed?.state?.token ?? null;
+        if (token) config.headers.Authorization = `Bearer ${token}`;
+      } catch {
+        // fallback: raw string token (shouldn't happen, but just in case)
+        config.headers.Authorization = `Bearer ${raw}`;
+      }
     }
     return config;
   },
