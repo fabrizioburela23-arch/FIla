@@ -1,9 +1,7 @@
 import { FastifyRequest, FastifyReply, preHandlerHookHandler } from 'fastify';
 import { forbidden } from '../utils/response';
 
-type UserRole = 'admin' | 'manager' | 'operator';
-
-export function requireRole(...roles: UserRole[]): preHandlerHookHandler {
+export function requireRole(...roles: string[]): preHandlerHookHandler {
   return async function roleGuard(
     request: FastifyRequest,
     reply: FastifyReply
@@ -13,14 +11,17 @@ export function requireRole(...roles: UserRole[]): preHandlerHookHandler {
       return;
     }
 
-    const userRole = request.user.role as UserRole;
+    const userRole = (request.user.role as string).toLowerCase();
+    const normalizedRoles = roles.map((r) => r.toLowerCase());
 
-    if (!roles.includes(userRole)) {
-      forbidden(
-        reply,
-        `Access denied. Required role(s): ${roles.join(', ')}. Your role: ${userRole}`
-      );
+    // superadmin passes all role checks
+    if (userRole === 'superadmin' || normalizedRoles.includes(userRole)) {
       return;
     }
+
+    forbidden(
+      reply,
+      `Access denied. Required role(s): ${roles.join(', ')}. Your role: ${userRole}`
+    );
   };
 }
