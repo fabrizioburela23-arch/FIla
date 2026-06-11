@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { prisma } from '../../config/database';
 import { authenticate } from '../../shared/middleware/authenticate';
 import {
   listOperatorsHandler,
@@ -11,7 +12,18 @@ import {
 } from './operators.controller';
 
 export async function operatorsRoutes(fastify: FastifyInstance): Promise<void> {
-  // All operator routes require authentication
+  // Public: list operator names for quick-access login (no sensitive data)
+  fastify.get('/branches/:branchId/operators/quick-access', async (request: any, reply: any) => {
+    const { branchId } = request.params;
+    const operators = await prisma.operator.findMany({
+      where: { branchId, user: { isNot: null } },
+      select: { id: true, name: true, displayName: true, user: { select: { email: true } } },
+      orderBy: { name: 'asc' },
+    });
+    return reply.send({ success: true, data: operators });
+  });
+
+  // All other operator routes require authentication
   fastify.addHook('preHandler', authenticate);
 
   // GET /branches/:branchId/operators — list all operators for a branch

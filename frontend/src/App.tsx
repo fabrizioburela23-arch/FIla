@@ -19,6 +19,10 @@ const AdminBranchesPage = lazy(() => import('@/app/admin/BranchesPage'));
 const AdminServicesPage = lazy(() => import('@/app/admin/ServicesPage'));
 const AdminOperatorsPage = lazy(() => import('@/app/admin/OperatorsPage'));
 const AdminAnalyticsPage = lazy(() => import('@/app/admin/AnalyticsPage'));
+const AdminUsersPage = lazy(() => import('@/app/admin/UsersPage'));
+const SuperadminLayout = lazy(() => import('@/app/superadmin/SuperadminLayout'));
+const SuperadminDashboardPage = lazy(() => import('@/app/superadmin/DashboardPage'));
+const SuperadminAccountsPage = lazy(() => import('@/app/superadmin/AccountsPage'));
 
 // ─── Fallback ────────────────────────────────────────────────────────────────
 
@@ -160,6 +164,15 @@ export default function App() {
               <Route path="services" element={<AdminServicesPage />} />
               <Route path="operators" element={<AdminOperatorsPage />} />
               <Route path="analytics" element={<AdminAnalyticsPage />} />
+              <Route path="usuarios" element={<AdminUsersPage />} />
+            </Route>
+          </Route>
+
+          {/* ── Superadmin (master panel) ── */}
+          <Route element={<ProtectedRoute roles={['superadmin']} />}>
+            <Route path="/superadmin" element={<SuperadminLayout />}>
+              <Route index element={<SuperadminDashboardPage />} />
+              <Route path="empresas" element={<SuperadminAccountsPage />} />
             </Route>
           </Route>
 

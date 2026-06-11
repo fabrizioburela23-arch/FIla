@@ -110,6 +110,33 @@ export interface TimelinePoint {
   avgAttentionSecs: number;
 }
 
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+export interface AccountUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: 'ADMIN' | 'MANAGER' | 'OPERATOR';
+  status: 'ACTIVE' | 'INACTIVE';
+  lastLoginAt?: string;
+  createdAt: string;
+  operator?: { id: string; name: string } | null;
+}
+
+export interface UserCreatePayload {
+  email: string;
+  password: string;
+  fullName: string;
+  role: 'ADMIN' | 'MANAGER' | 'OPERATOR';
+}
+
+export interface UserUpdatePayload {
+  fullName?: string;
+  role?: 'ADMIN' | 'MANAGER' | 'OPERATOR';
+  status?: 'ACTIVE' | 'INACTIVE';
+}
+
 // ─── API functions ────────────────────────────────────────────────────────────
 
 export const branchesApi = {
@@ -178,3 +205,27 @@ export const analyticsApi = {
       .get('/api/v1/analytics/timeline', { params })
       .then((r) => r.data.data as TimelinePoint[]),
 };
+
+export const usersApi = {
+  list: (): Promise<AccountUser[]> =>
+    apiClient.get('/api/v1/account/users').then((r) => r.data.data.users as AccountUser[]),
+
+  create: (payload: UserCreatePayload): Promise<AccountUser> =>
+    apiClient.post('/api/v1/account/users', payload).then((r) => r.data.data as AccountUser),
+
+  update: (userId: string, payload: UserUpdatePayload): Promise<AccountUser> =>
+    apiClient.patch(`/api/v1/account/users/${userId}`, payload).then((r) => r.data.data as AccountUser),
+
+  deactivate: (userId: string): Promise<void> =>
+    apiClient.delete(`/api/v1/account/users/${userId}`).then(() => undefined),
+};
+
+export const operatorsApiWithUser = {
+  create: (branchId: string, payload: OperatorCreatePayload & {
+    createUser?: boolean; userEmail?: string; userPassword?: string;
+  }): Promise<Operator> =>
+    apiClient
+      .post(`/api/v1/branches/${branchId}/operators`, payload)
+      .then((r) => r.data.data as Operator),
+};
+

@@ -166,6 +166,30 @@ async function seed() {
     }
   }
 
+  // Superadmin user (master of the platform)
+  const existingSuperadmin = await prisma.user.findFirst({ where: { email: 'master@fila.bo' } });
+  if (!existingSuperadmin) {
+    // Superadmin needs an account (required by foreign key), use a special master account
+    let masterAccount = await prisma.account.findUnique({ where: { slug: 'fila-master' } });
+    if (!masterAccount) {
+      masterAccount = await prisma.account.create({
+        data: { name: 'Fila Master', slug: 'fila-master', email: 'master@fila.bo', status: 'ACTIVE' },
+      });
+    }
+    await prisma.user.create({
+      data: {
+        accountId: masterAccount.id,
+        email: 'master@fila.bo',
+        passwordHash: await bcrypt.hash('master1234', 12),
+        fullName: 'Master Superadmin',
+        role: 'SUPERADMIN',
+        status: 'ACTIVE',
+      },
+    });
+    console.log('✅ Superadmin seeded');
+    console.log('   Email: master@fila.bo / master1234');
+  }
+
   console.log('🎉 Seed complete');
   await prisma.$disconnect();
 }

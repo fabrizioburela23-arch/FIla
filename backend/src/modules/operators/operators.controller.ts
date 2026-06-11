@@ -95,6 +95,10 @@ export async function createOperatorHandler(
       conflict(reply, 'This user is already linked to another operator');
       return;
     }
+    if (error.message === 'USER_EMAIL_TAKEN') {
+      conflict(reply, 'El email ya está en uso por otro usuario de esta empresa');
+      return;
+    }
     if (error.message === 'INVALID_SERVICE_IDS') {
       badRequest(
         reply,

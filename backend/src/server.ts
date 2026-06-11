@@ -13,6 +13,7 @@ import { branchesRoutes } from './modules/branches/branches.routes';
 import { servicesRoutes } from './modules/services/services.routes';
 import { operatorsRoutes } from './modules/operators/operators.routes';
 import { ticketsRoutes } from './modules/tickets/tickets.routes';
+import { superadminRoutes } from './modules/superadmin/superadmin.routes';
 import { analyticsRoutes } from './modules/analytics/analytics.routes';
 
 async function bootstrap() {
@@ -36,6 +37,7 @@ async function bootstrap() {
     await api.register(servicesRoutes);
     await api.register(operatorsRoutes);
     await api.register(analyticsRoutes);
+    await api.register(superadminRoutes);
     // Tickets/queue routes live at top level (public QR routes need short URLs)
   }, { prefix: '/api/v1' });
 

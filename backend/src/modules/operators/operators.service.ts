@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { prisma } from '../../config/database';
 import { logger } from '../../shared/utils/logger';
 import type {
@@ -110,8 +111,18 @@ export class OperatorsService {
       throw new Error('BRANCH_NOT_FOUND');
     }
 
-    // If a userId is provided, verify the user belongs to this account
-    if (data.userId) {
+    // If createUser flag is set, create a new User and link it
+    let resolvedUserId = data.userId ?? null;
+    if (data.createUser && data.userEmail && data.userPassword) {
+      const existing = await prisma.user.findFirst({ where: { accountId, email: data.userEmail } });
+      if (existing) throw new Error('USER_EMAIL_TAKEN');
+      const passwordHash = await bcrypt.hash(data.userPassword, 12);
+      const newUser = await prisma.user.create({
+        data: { accountId, email: data.userEmail, passwordHash, fullName: data.name, role: 'OPERATOR' },
+      });
+      resolvedUserId = newUser.id;
+    } else if (data.userId) {
+      // If a userId is provided, verify the user belongs to this account
       const user = await prisma.user.findFirst({
         where: { id: data.userId, accountId },
       });
@@ -126,6 +137,7 @@ export class OperatorsService {
       if (existingOperator) {
         throw new Error('USER_ALREADY_OPERATOR');
       }
+      resolvedUserId = data.userId;
     }
 
     // Validate that all serviceIds belong to this branch and account
@@ -148,7 +160,7 @@ export class OperatorsService {
         accountId,
         name: data.name,
         displayName: data.displayName,
-        userId: data.userId ?? null,
+        userId: resolvedUserId,
         serviceIds: data.serviceIds,
         status: 'OFFLINE',
       },

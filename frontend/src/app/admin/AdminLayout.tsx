@@ -16,6 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/admin/branches',  label: 'Sucursales', icon: 'store' },
   { to: '/admin/services',  label: 'Servicios',  icon: 'queue' },
   { to: '/admin/operators', label: 'Operadores', icon: 'badge' },
+  { to: '/admin/usuarios',  label: 'Usuarios',   icon: 'manage_accounts' },
   { to: '/admin/analytics', label: 'Analítica',  icon: 'analytics' },
 ];
 

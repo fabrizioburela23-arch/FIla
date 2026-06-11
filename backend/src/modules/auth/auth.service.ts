@@ -67,7 +67,8 @@ export class AuthService {
       throw new Error('USER_INACTIVE');
     }
 
-    if (user.account.status === 'SUSPENDED' || user.account.status === 'CANCELLED') {
+    // Superadmin can always login regardless of their account status
+    if (user.role !== 'SUPERADMIN' && (user.account.status === 'SUSPENDED' || user.account.status === 'CANCELLED')) {
       throw new Error('ACCOUNT_SUSPENDED');
     }
 
