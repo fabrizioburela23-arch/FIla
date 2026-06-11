@@ -29,11 +29,12 @@ export interface LoginResponse {
   token: string;
   user: {
     id: string;
-    name: string;
+    fullName: string;
     email: string;
     role: 'operator' | 'admin' | 'superadmin';
-    operatorId?: string;
-    branchId?: string;
+    accountId: string;
+    operatorId?: string | null;
+    branchId?: string | null;
   };
 }
 

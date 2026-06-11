@@ -11,13 +11,12 @@ export function useAuth() {
     const response = await apiLogin(email, password);
     const authUser = {
       id: response.user.id,
-      accountId: '',
+      accountId: response.user.accountId,
       email: response.user.email,
       role: response.user.role,
-      fullName: response.user.name,
-      name: response.user.name,
-      operatorId: response.user.operatorId,
-      branchId: response.user.branchId,
+      fullName: response.user.fullName,
+      operatorId: response.user.operatorId ?? undefined,
+      branchId: response.user.branchId ?? undefined,
     };
     setAuth(response.token, authUser);
     return authUser;

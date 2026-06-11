@@ -52,6 +52,9 @@ export class AuthService {
         account: {
           select: { id: true, name: true, slug: true, status: true },
         },
+        operator: {
+          select: { id: true, branchId: true },
+        },
       },
     });
 
@@ -101,6 +104,8 @@ export class AuthService {
           name: user.account.name,
           slug: user.account.slug,
         },
+        operatorId: user.operator?.id ?? null,
+        branchId: user.operator?.branchId ?? null,
       },
     };
   }
