@@ -86,12 +86,11 @@ export function useOperatorConsole(operatorId: string): UseOperatorConsoleReturn
 
   // ── Actions ─────────────────────────────────────────────────────────────
   const withBusy = useCallback(
-    async (action: () => Promise<OperatorConsoleState>) => {
+    async (action: () => Promise<unknown>) => {
       setIsBusy(true);
       try {
-        const data = await action();
-        setState(data);
-        resetAttendanceTimer(data.currentTicket?.calledAt ?? null);
+        await action();
+        await fetchState();
       } catch (err) {
         addToast('Ocurrió un error, intentá de nuevo', 'error');
         console.error(err);
@@ -99,7 +98,7 @@ export function useOperatorConsole(operatorId: string): UseOperatorConsoleReturn
         setIsBusy(false);
       }
     },
-    [addToast, resetAttendanceTimer],
+    [addToast, fetchState],
   );
 
   const handleCallNext = useCallback(

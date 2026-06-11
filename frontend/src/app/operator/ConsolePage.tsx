@@ -175,6 +175,7 @@ export default function ConsolePage() {
     attendanceSeconds,
     handleCallNext,
     handleNoShow,
+    handleComplete,
     handleTransfer,
   } = useOperatorConsole(operatorId ?? '');
 
@@ -293,11 +294,11 @@ export default function ConsolePage() {
                   <AttendanceTimerRow seconds={attendanceSeconds} />
 
                   {/* Action buttons */}
-                  <div className="mt-8 grid grid-cols-3 gap-4">
+                  <div className="mt-8 grid grid-cols-2 gap-4">
                     <ActionButton
-                      label="Llamar Siguiente"
-                      icon="volume_up"
-                      onClick={handleCallNext}
+                      label="Completar Atención"
+                      icon="check_circle"
+                      onClick={handleComplete}
                       disabled={isBusy}
                       className="bg-secondary text-on-secondary hover:opacity-90"
                     />
@@ -307,6 +308,13 @@ export default function ConsolePage() {
                       onClick={handleNoShow}
                       disabled={isBusy}
                       className="border border-outline-variant bg-surface-container-highest text-on-surface-variant hover:bg-surface-container"
+                    />
+                    <ActionButton
+                      label="Llamar Siguiente"
+                      icon="volume_up"
+                      onClick={handleCallNext}
+                      disabled={isBusy}
+                      className="border border-outline-variant bg-surface-container-low text-on-surface hover:bg-surface-container"
                     />
                     <ActionButton
                       label="Transferir Turno"
