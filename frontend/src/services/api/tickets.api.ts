@@ -111,10 +111,30 @@ export const ticketsApi = {
     apiClient.get(`/s/${branchId}`).then((r) => r.data.data),
 
   joinQueue: (branchId: string, data: { serviceId: string; customerName?: string }) =>
-    apiClient.post(`/s/${branchId}/join`, data).then((r) => r.data.data),
+    apiClient.post(`/s/${branchId}/join`, data).then((r) => {
+      const { ticket, eta } = r.data.data;
+      return {
+        ...ticket,
+        serviceName: ticket.service?.name ?? '',
+        serviceColor: ticket.service?.color ?? '',
+        positionInQueue: eta?.positionInQueue ?? 0,
+        etaSeconds: eta?.etaSeconds ?? 0,
+        etaMinutes: eta?.etaMinutes ?? 0,
+      };
+    }),
 
   getTicketStatus: (ticketId: string) =>
-    apiClient.get(`/tickets/${ticketId}`).then((r) => r.data.data),
+    apiClient.get(`/tickets/${ticketId}`).then((r) => {
+      const { ticket, eta } = r.data.data;
+      return {
+        ...ticket,
+        serviceName: ticket.service?.name ?? '',
+        serviceColor: ticket.service?.color ?? '',
+        positionInQueue: eta?.positionInQueue ?? 0,
+        etaSeconds: eta?.etaSeconds ?? 0,
+        etaMinutes: eta?.etaMinutes ?? 0,
+      };
+    }),
 
   cancelTicket: (ticketId: string) =>
     apiClient.delete(`/tickets/${ticketId}`).then((r) => r.data.data),
