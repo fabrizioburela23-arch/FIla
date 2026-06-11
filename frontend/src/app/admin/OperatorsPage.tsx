@@ -98,7 +98,7 @@ function OperatorFormModal({
           userId: initial.userId ?? '',
           serviceIds: initial.serviceIds,
         }
-      : { name: '', displayName: '', userId: '', serviceIds: [] }
+      : { name: '', displayName: '', serviceIds: [] }
   );
   const [saving, setSaving] = useState(false);
 
@@ -191,18 +191,7 @@ function OperatorFormModal({
             </p>
           </div>
 
-          {/* User ID (optional) */}
-          <div>
-            <label className="text-label-caps text-on-surface-variant block mb-1 uppercase">
-              ID de usuario (opcional)
-            </label>
-            <input
-              value={form.userId ?? ''}
-              onChange={(e) => set('userId', e.target.value)}
-              placeholder="UUID del usuario de sistema"
-              className="w-full h-12 px-4 border border-outline-variant rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-body-md bg-white"
-            />
-          </div>
+
 
           {/* Services multi-select */}
           <div>
@@ -337,7 +326,7 @@ function OperatorsTable({ operators, services, onEdit }: OperatorsTableProps) {
                 </td>
                 <td className="px-5 py-4">
                   <span className="text-body-md text-on-surface-variant whitespace-nowrap">
-                    {op.userEmail ?? op.userId ?? '—'}
+                    {op.user?.email ?? '—'}
                   </span>
                 </td>
                 <td className="px-5 py-4">

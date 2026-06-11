@@ -56,12 +56,13 @@ export type OperatorStatus = 'ONLINE' | 'BUSY' | 'PAUSED' | 'OFFLINE';
 export interface Operator {
   id: string;
   branchId: string;
+  accountId: string;
   name: string;
   displayName: string;
   status: OperatorStatus;
-  userId?: string;
+  userId?: string | null;
   serviceIds: string[];
-  userEmail?: string;
+  user?: { id: string; fullName: string; email: string; role: string } | null;
 }
 
 export interface OperatorCreatePayload {
@@ -122,7 +123,7 @@ export const branchesApi = {
     apiClient.patch(`/api/v1/branches/${id}`, payload).then((r) => r.data.data as Branch),
 
   toggleOpen: (id: string, isOpen: boolean): Promise<Branch> =>
-    apiClient.patch(`/api/v1/branches/${id}`, { isOpen }).then((r) => r.data.data as Branch),
+    apiClient.patch(`/api/v1/branches/${id}/toggle-open`, { isOpen }).then((r) => r.data.data as Branch),
 };
 
 export const servicesApi = {
@@ -146,12 +147,12 @@ export const servicesApi = {
 export const operatorsApi = {
   list: (branchId: string): Promise<Operator[]> =>
     apiClient
-      .get('/api/v1/operators', { params: { branchId } })
+      .get(`/api/v1/branches/${branchId}/operators`)
       .then((r) => r.data.data as Operator[]),
 
   create: (branchId: string, payload: OperatorCreatePayload): Promise<Operator> =>
     apiClient
-      .post('/api/v1/operators', { ...payload, branchId })
+      .post(`/api/v1/branches/${branchId}/operators`, payload)
       .then((r) => r.data.data as Operator),
 
   update: (id: string, payload: Partial<OperatorCreatePayload>): Promise<Operator> =>

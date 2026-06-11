@@ -11,7 +11,7 @@ export const createOperatorSchema = z.object({
   userId: z.string().uuid('userId must be a valid UUID').optional(),
   serviceIds: z
     .array(z.string().uuid('Each service ID must be a valid UUID'))
-    .min(1, 'At least one service must be assigned'),
+    .default([]),
 });
 
 export const updateOperatorSchema = createOperatorSchema.partial();
