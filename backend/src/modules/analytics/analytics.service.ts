@@ -17,30 +17,25 @@ export const analyticsService = {
       createdAt: { gte: from, lte: to },
     };
 
-    const [totalTickets, completedTickets, avgWaitRaw, avgAttentionRaw, byService, byOperator] = await Promise.all([
+    const [totalTickets, completedTickets, noShowCount, cancelledCount, avgWaitRaw, avgAttentionRaw, byService, byOperator] = await Promise.all([
       prisma.ticket.count({ where: whereBase }),
-
       prisma.ticket.count({ where: { ...whereBase, status: 'COMPLETED' } }),
-
+      prisma.ticket.count({ where: { ...whereBase, status: 'NO_SHOW' } }),
+      prisma.ticket.count({ where: { ...whereBase, status: 'CANCELLED' } }),
       prisma.ticket.aggregate({
         where: { ...whereBase, status: 'COMPLETED', waitedSecs: { not: null } },
         _avg: { waitedSecs: true },
       }),
-
       prisma.ticket.aggregate({
         where: { ...whereBase, status: 'COMPLETED', attentionSecs: { not: null } },
         _avg: { attentionSecs: true },
       }),
-
-      // TPE y TPA por servicio
       prisma.ticket.groupBy({
         by: ['serviceId'],
         where: { ...whereBase, status: 'COMPLETED' },
         _avg: { waitedSecs: true, attentionSecs: true },
         _count: { id: true },
       }),
-
-      // TPE y TPA por operador
       prisma.ticket.groupBy({
         by: ['operatorId'],
         where: { ...whereBase, status: 'COMPLETED', operatorId: { not: null } },
@@ -66,34 +61,31 @@ export const analyticsService = {
     const serviceMap = Object.fromEntries(services.map((s) => [s.id, s]));
     const operatorMap = Object.fromEntries(operators.map((o) => [o.id, o]));
 
-    const noShowCount = await prisma.ticket.count({ where: { ...whereBase, status: 'NO_SHOW' } });
-    const cancelledCount = await prisma.ticket.count({ where: { ...whereBase, status: 'CANCELLED' } });
-
+    // Return flat structure matching the frontend AnalyticsSummary interface
     return {
-      totals: {
-        total: totalTickets,
-        completed: completedTickets,
-        noShow: noShowCount,
-        cancelled: cancelledCount,
-        completionRate: totalTickets > 0 ? Math.round((completedTickets / totalTickets) * 100) : 0,
-      },
-      averages: {
-        avgWaitMinutes: avgWaitRaw._avg.waitedSecs ? Math.round(avgWaitRaw._avg.waitedSecs / 60) : 0,
-        avgAttentionMinutes: avgAttentionRaw._avg.attentionSecs
-          ? Math.round(avgAttentionRaw._avg.attentionSecs / 60)
-          : 0,
-      },
+      total: totalTickets,
+      completed: completedTickets,
+      noShow: noShowCount,
+      cancelled: cancelledCount,
+      completedPct: totalTickets > 0 ? Math.round((completedTickets / totalTickets) * 100) : 0,
+      avgWaitSecs: avgWaitRaw._avg.waitedSecs ?? 0,
+      avgAttentionSecs: avgAttentionRaw._avg.attentionSecs ?? 0,
       byService: byService.map((s) => ({
-        service: serviceMap[s.serviceId] ?? { id: s.serviceId, name: 'Desconocido', color: '#6B7280', prefix: '?' },
+        serviceId: s.serviceId,
+        serviceName: serviceMap[s.serviceId]?.name ?? 'Desconocido',
+        serviceColor: serviceMap[s.serviceId]?.color ?? '#6B7280',
         count: s._count.id,
-        avgWaitMinutes: s._avg.waitedSecs ? Math.round(s._avg.waitedSecs / 60) : 0,
-        avgAttentionMinutes: s._avg.attentionSecs ? Math.round(s._avg.attentionSecs / 60) : 0,
+        avgWaitSecs: s._avg.waitedSecs ?? 0,
+        avgAttentionSecs: s._avg.attentionSecs ?? 0,
       })),
       byOperator: byOperator.map((o) => ({
-        operator: o.operatorId ? (operatorMap[o.operatorId] ?? { id: o.operatorId, name: 'Desconocido', displayName: '?' }) : null,
+        operatorId: o.operatorId ?? '',
+        operatorName: o.operatorId
+          ? (operatorMap[o.operatorId]?.name ?? 'Desconocido')
+          : 'Sin asignar',
         count: o._count.id,
-        avgWaitMinutes: o._avg.waitedSecs ? Math.round(o._avg.waitedSecs / 60) : 0,
-        avgAttentionMinutes: o._avg.attentionSecs ? Math.round(o._avg.attentionSecs / 60) : 0,
+        avgWaitSecs: o._avg.waitedSecs ?? 0,
+        avgAttentionSecs: o._avg.attentionSecs ?? 0,
       })),
     };
   },
@@ -107,21 +99,52 @@ export const analyticsService = {
         ...(branchId && { branchId }),
         createdAt: { gte: from, lte: to },
       },
-      select: { createdAt: true, status: true, waitedSecs: true },
+      select: { createdAt: true, status: true, waitedSecs: true, attentionSecs: true },
       orderBy: { createdAt: 'asc' },
     });
 
-    const byDay: Record<string, { date: string; total: number; completed: number; avgWaitMins: number }> = {};
+    // If range is a single day → group by hour (for DashboardPage "turnos por hora")
+    const fromDay = from.toISOString().split('T')[0];
+    const toDay = to.toISOString().split('T')[0];
+    const isSingleDay = fromDay === toDay;
 
-    for (const t of tickets) {
-      const day = t.createdAt.toISOString().split('T')[0];
-      if (!byDay[day]) byDay[day] = { date: day, total: 0, completed: 0, avgWaitMins: 0 };
-      byDay[day].total++;
-      if (t.status === 'COMPLETED') {
-        byDay[day].completed++;
+    if (isSingleDay) {
+      // Return hourly breakdown: { hour: "09:00", count, avgWaitSecs, avgAttentionSecs }
+      const byHour: Record<string, { hour: string; count: number; totalWait: number; totalAttention: number }> = {};
+      for (const t of tickets) {
+        const h = t.createdAt.toISOString().slice(11, 13);
+        const key = `${h}:00`;
+        if (!byHour[key]) byHour[key] = { hour: key, count: 0, totalWait: 0, totalAttention: 0 };
+        byHour[key].count++;
+        byHour[key].totalWait += t.waitedSecs ?? 0;
+        byHour[key].totalAttention += t.attentionSecs ?? 0;
       }
+      return Object.values(byHour)
+        .sort((a, b) => a.hour.localeCompare(b.hour))
+        .map((h) => ({
+          hour: h.hour,
+          count: h.count,
+          avgWaitSecs: h.count > 0 ? Math.round(h.totalWait / h.count) : 0,
+          avgAttentionSecs: h.count > 0 ? Math.round(h.totalAttention / h.count) : 0,
+        }));
     }
 
-    return Object.values(byDay);
+    // Multi-day range → group by date: { hour: "2025-01-15", count, avgWaitSecs, avgAttentionSecs }
+    const byDay: Record<string, { hour: string; count: number; totalWait: number; totalAttention: number }> = {};
+    for (const t of tickets) {
+      const day = t.createdAt.toISOString().split('T')[0];
+      if (!byDay[day]) byDay[day] = { hour: day, count: 0, totalWait: 0, totalAttention: 0 };
+      byDay[day].count++;
+      byDay[day].totalWait += t.waitedSecs ?? 0;
+      byDay[day].totalAttention += t.attentionSecs ?? 0;
+    }
+    return Object.values(byDay)
+      .sort((a, b) => a.hour.localeCompare(b.hour))
+      .map((d) => ({
+        hour: d.hour,
+        count: d.count,
+        avgWaitSecs: d.count > 0 ? Math.round(d.totalWait / d.count) : 0,
+        avgAttentionSecs: d.count > 0 ? Math.round(d.totalAttention / d.count) : 0,
+      }));
   },
 };
